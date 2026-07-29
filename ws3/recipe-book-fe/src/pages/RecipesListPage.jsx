@@ -15,27 +15,67 @@ const RecipesListPage = () => {
     const [selectedMealType, setSelectedMealType] = useState('');
     const navigate = useNavigate();
 
+    const [appliedFilters, setAppliedFilters] = useState({
+        mealTypeId: "",
+        difficulty: "",
+        search: ""
+    });
+
+    useEffect(() => {
+        const fetchMealTypes = async () => {
+            try {
+                const resMealTypes = await axiosClient.get("/v1/meal-types");
+                setMealTypes(resMealTypes.data || resMealTypes.content || []);
+            } catch (error) {
+                console.error("Failed to fetch meal types:", error);
+            }
+        };
+        fetchMealTypes();
+    }, []);
+
     useEffect(() => {
         const fetchRecipesData = async () => {
             try {
                 const params = { page, size };
-                if (selectedMealType) params.mealTypeId = selectedMealType;
-                if (difficulty) params.difficulty = difficulty;
-                if (searchQuery) params.search = searchQuery;
 
-                const resRecipes = await axiosClient.get('/v1/recipes', { params });
-                const resMealTypes = await axiosClient.get('/v1/meal-types');
+                if (appliedFilters.mealTypeId) params.mealTypeId = appliedFilters.mealTypeId;
+                if (appliedFilters.difficulty) params.difficulty = appliedFilters.difficulty;
+                if (appliedFilters.search) params.search = appliedFilters.search;
+
+                const resRecipes = await axiosClient.get("/v1/recipes", { params });
 
                 setRecipes(resRecipes.data?.content || resRecipes.content || []);
-                setMealTypes(resMealTypes.data || resMealTypes.content || []);
                 setTotalPages(resRecipes.data?.totalPages || resRecipes.totalPages || 0);
                 setTotalElements(resRecipes.data?.totalElements || resRecipes.totalElements || 0);
             } catch (error) {
                 console.error("Failed to fetch recipes:", error);
             }
         };
+
         fetchRecipesData();
-    }, [difficulty, page, searchQuery, selectedMealType, size]);
+    }, [page, size, appliedFilters]);
+
+    const handleApplyFilter = (e) => {
+        e?.preventDefault();
+        setPage(0);
+        setAppliedFilters({
+            mealTypeId: selectedMealType,
+            difficulty: difficulty,
+            search: searchQuery.trim()
+        });
+    };
+
+    const handleResetFilter = () => {
+        setSelectedMealType("");
+        setDifficulty("");
+        setSearchQuery("");
+        setPage(0);
+        setAppliedFilters({
+            mealTypeId: "",
+            difficulty: "",
+            search: ""
+        });
+    };
 
     const renderPaginationItems = () => {
         let items = [];
@@ -53,19 +93,7 @@ const RecipesListPage = () => {
         return items;
     };
 
-    // Hàm tiện ích để render Badge độ khó đẹp hơn
-    const renderDifficultyBadge = (diff) => {
-        switch (diff?.toLowerCase()) {
-            case 'easy':
-                return <Badge bg="success-subtle" className="text-success px-2 py-1.5 fw-semibold">Easy</Badge>;
-            case 'medium':
-                return <Badge bg="warning-subtle" className="text-warning px-2 py-1.5 fw-semibold">Medium</Badge>;
-            case 'hard':
-                return <Badge bg="danger-subtle" className="text-danger px-2 py-1.5 fw-semibold">Hard</Badge>;
-            default:
-                return <Badge bg="light" className="text-dark border px-2 py-1.5">{diff}</Badge>;
-        }
-    };
+
 
     return (
         <Container className="my-5">
@@ -74,63 +102,109 @@ const RecipesListPage = () => {
 
             {/* Thanh công cụ Bộ lọc & Tìm kiếm */}
             <Card className="border-0 shadow-sm p-3 mb-4" style={{ borderRadius: "16px" }}>
-                <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
-                    <div className="d-flex flex-wrap align-items-center gap-3 flex-grow-1">
-                        {/* Thay đổi w-25 cố định bằng style maxWidth để responsive tốt hơn */}
-                        <Form.Select
-                            className="py-2 text-secondary border-light-subtle"
-                            style={{ borderRadius: "8px", maxWidth: "200px" }}
-                            onChange={(e) => setSelectedMealType(e.target.value)}
-                            value={selectedMealType}
-                        >
-                            <option value="">All Meal Types</option>
-                            {mealTypes?.map(s => (
-                                <option key={s.id} value={s.id}>{s.name}</option>
-                            ))}
-                        </Form.Select>
+                <Form onSubmit={handleApplyFilter}>
+                    <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                        <div className="d-flex flex-wrap align-items-center gap-3 flex-grow-1">
+                            {/* Filter Meal Type */}
+                            <Form.Select
+                                className="py-2 text-secondary border-light-subtle"
+                                style={{ borderRadius: "8px", maxWidth: "200px" }}
+                                onChange={(e) => setSelectedMealType(e.target.value)}
+                                value={selectedMealType}
+                            >
+                                <option value="">All Meal Types</option>
+                                {mealTypes?.map((s) => (
+                                    <option key={s.id} value={s.id}>
+                                        {s.name}
+                                    </option>
+                                ))}
+                            </Form.Select>
 
-                        <ToggleButtonGroup
-                            type="radio"
-                            name="options"
-                            className="bg-light p-1 border rounded-3"
-                            style={{ gap: "4px" }}
-                            value={difficulty}
-                            onChange={(val) => setDifficulty(val)}
-                        >
-                            <ToggleButton id="tbg-btn-1" value={''} variant="link" className={`text-decoration-none px-3 py-1.5 fw-medium text-capitalize rounded-2 border-0 ${difficulty === '' ? 'bg-white text-dark shadow-sm' : 'text-secondary'}`}>
-                                All
-                            </ToggleButton>
-                            <ToggleButton id="tbg-btn-5" value={"easy"} variant="link" className={`text-decoration-none px-3 py-1.5 fw-medium text-capitalize rounded-2 border-0 ${difficulty === 'easy' ? 'bg-white text-success shadow-sm' : 'text-secondary'}`}>
-                                Easy
-                            </ToggleButton>
-                            <ToggleButton id="tbg-btn-2" value={"medium"} variant="link" className={`text-decoration-none px-3 py-1.5 fw-medium text-capitalize rounded-2 border-0 ${difficulty === 'medium' ? 'bg-white text-warning shadow-sm' : 'text-secondary'}`}>
-                                Medium
-                            </ToggleButton>
-                            <ToggleButton id="tbg-btn-3" value={"hard"} variant="link" className={`text-decoration-none px-3 py-1.5 fw-medium text-capitalize rounded-2 border-0 ${difficulty === 'hard' ? 'bg-white text-danger shadow-sm' : 'text-secondary'}`}>
-                                Hard
-                            </ToggleButton>
-                        </ToggleButtonGroup>
+                            {/* Filter Difficulty */}
+                            <ToggleButtonGroup
+                                type="radio"
+                                name="difficultyOptions"
+                                className="bg-light p-1 border rounded-3"
+                                style={{ gap: "4px" }}
+                                value={difficulty}
+                                onChange={(val) => setDifficulty(val)}
+                            >
+                                <ToggleButton
+                                    id="tbg-btn-all"
+                                    value=""
+                                    variant="link"
+                                    className={`text-decoration-none px-3 py-1.5 fw-medium text-capitalize rounded-2 border-0 ${
+                                        difficulty === "" ? "bg-white text-dark shadow-sm" : "text-secondary"
+                                    }`}
+                                >
+                                    All
+                                </ToggleButton>
+                                <ToggleButton
+                                    id="tbg-btn-easy"
+                                    value="easy"
+                                    variant="link"
+                                    className={`text-decoration-none px-3 py-1.5 fw-medium text-capitalize rounded-2 border-0 ${
+                                        difficulty === "easy" ? "bg-white text-success shadow-sm" : "text-secondary"
+                                    }`}
+                                >
+                                    Easy
+                                </ToggleButton>
+                                <ToggleButton
+                                    id="tbg-btn-medium"
+                                    value="medium"
+                                    variant="link"
+                                    className={`text-decoration-none px-3 py-1.5 fw-medium text-capitalize rounded-2 border-0 ${
+                                        difficulty === "medium" ? "bg-white text-warning shadow-sm" : "text-secondary"
+                                    }`}
+                                >
+                                    Medium
+                                </ToggleButton>
+                                <ToggleButton
+                                    id="tbg-btn-hard"
+                                    value="hard"
+                                    variant="link"
+                                    className={`text-decoration-none px-3 py-1.5 fw-medium text-capitalize rounded-2 border-0 ${
+                                        difficulty === "hard" ? "bg-white text-danger shadow-sm" : "text-secondary"
+                                    }`}
+                                >
+                                    Hard
+                                </ToggleButton>
+                            </ToggleButtonGroup>
 
-                        {/* Thay đổi ô input trần thành Form.Control của React-Bootstrap */}
-                        <Form.Control
-                            type="text"
-                            className="py-2 border-light-subtle"
-                            style={{ borderRadius: "8px", maxWidth: "250px" }}
-                            placeholder="Search by recipe name..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
+                            {/* Filter Search Query */}
+                            <Form.Control
+                                type="text"
+                                className="py-2 border-light-subtle"
+                                style={{ borderRadius: "8px", maxWidth: "250px" }}
+                                placeholder="Search by recipe name..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+
+                            {/* Buttons Action */}
+                            <Button type="submit" variant="primary" className="px-4 py-2 rounded-3">
+                                Filter
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="outline-secondary"
+                                className="px-3 py-2 rounded-3"
+                                onClick={handleResetFilter}
+                            >
+                                Reset
+                            </Button>
+
+                            <Button
+                                variant="success"
+                                className="px-4 py-2 border-0 fw-medium"
+                                style={{ borderRadius: "8px", backgroundColor: "#059669" }}
+                                onClick={() => navigate("/add-new-recipes")}
+                            >
+                                + Add Recipe
+                            </Button>
+                        </div>
                     </div>
-
-                    <Button
-                        variant="success"
-                        className="px-4 py-2 border-0 fw-medium"
-                        style={{ borderRadius: "8px", backgroundColor: "#059669" }}
-                        onClick={() => navigate("/add-new-recipes")}
-                    >
-                        + Add Recipe
-                    </Button>
-                </div>
+                </Form>
             </Card>
 
             {/* Bảng Danh sách Công thức nấu ăn */}
@@ -167,7 +241,7 @@ const RecipesListPage = () => {
                                 <td className="text-dark">{rep.prepTime}m</td>
                                 <td className="text-dark">{rep.cookTime}m</td>
                                 <td className="text-dark">{(rep.cookTime || 0) + (rep.prepTime || 0)}m</td>
-                                <td>{renderDifficultyBadge(rep.difficulty)}</td>
+                                <td>{rep.difficulty}</td>
                                 <td className="text-secondary">{rep.servings} px</td>
                                 <td className="py-3 px-4 text-end">
                                     <Button
