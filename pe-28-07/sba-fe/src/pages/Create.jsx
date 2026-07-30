@@ -19,6 +19,7 @@ const Create = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const navigate = useNavigate();
     const [successMsg, setSuccessMsg] = useState("");
+    const [errorMsg, setErrorMsg] = useState("");
 
     useEffect(() => {
         const fetchSlot = async () => {
@@ -27,6 +28,7 @@ const Create = () => {
                 setCates(res.data);
             } catch (error) {
                 console.log(error);
+                setErrorMsg("Không thể tải thông tin danh mục!");
             }
         };
         fetchSlot();
@@ -35,20 +37,25 @@ const Create = () => {
 
     const validateForm = () => {
         const newErrors = {};
+        const pFrom = Number(formData.priceFrom);
+        const pTo = Number(formData.priceTo);
 
+        if (!formData.restaurantName.trim()) {
+            newErrors.restaurantName = "Tên nhà hàng không được để trống";
+        }
 
-        // if (!formData.name || formData.name.trim().length < 3) {
-        //     newErrors.name = "Tên món ăn phải có ít nhất 3 ký tự";
-        // }
-        if (!formData.priceFrom || formData.priceFrom < 1000 || formData.priceFrom > 1000000) {
+        if (!formData.priceFrom || pFrom < 1000 || pFrom > 1000000) {
             newErrors.priceFrom = "Giá từ phải nằm trong khoảng 1.000 - 1.000.000";
         }
 
-        if (!formData.priceTo || formData.priceTo < 1000 || formData.priceTo > 1000000) {
-            newErrors.priceTo = "Giá từ phải nằm trong khoảng 1.000 - 1.000.000";
-        }
-        if (formData.priceTo <= formData.priceFrom) {
+        if (!formData.priceTo || pTo < 1000 || pTo > 1000000) {
+            newErrors.priceTo = "Giá đến phải nằm trong khoảng 1.000 - 1.000.000";
+        } else if (pTo <= pFrom) {
             newErrors.priceTo = "Giá đến phải lớn hơn giá từ";
+        }
+
+        if (!formData.categoryId) {
+            newErrors.categoryId = "Vui lòng chọn danh mục";
         }
 
         if (formData.openDate) {
@@ -59,8 +66,9 @@ const Create = () => {
             if (selectedDate > today) {
                 newErrors.openDate = "Ngày mở cửa không được lớn hơn ngày hiện tại";
             }
+        } else {
+            newErrors.openDate = "Vui lòng chọn ngày mở cửa";
         }
-
 
         return newErrors;
     };
@@ -73,6 +81,7 @@ const Create = () => {
         if (errors[name]) {
             setErrors((prev) => ({...prev, [name]: ""}));
         }
+        setErrorMsg(null);
     };
 
     const handleSubmit = async (e) => {
@@ -107,6 +116,8 @@ const Create = () => {
 
         } catch (error) {
             console.log(error);
+            setErrorMsg("Tạo nhà hàng thất bại! Vui lòng thử lại sau.");
+            setIsSubmitting(false);
         } finally {
             setIsSubmitting(false);
         }
@@ -120,6 +131,12 @@ const Create = () => {
             {successMsg && (
                 <Alert variant="success" className="mb-3">
                     {successMsg}
+                </Alert>
+            )}
+
+            {errorMsg && (
+                <Alert variant="danger" className="border-0 rounded-3 mb-4 py-2.5 px-3 fs-6">
+                    {errorMsg}
                 </Alert>
             )}
 
